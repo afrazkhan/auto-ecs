@@ -1,0 +1,11 @@
+- hosts: localhost
+  roles:
+    - role: aws
+    - role: ecs
+  remote_user: ec2-user
+  vars:
+    project_name: "pipeline"
+    instance_count: 1
+    ecs_iam_role: "ecsInstanceRole"
+  # TODO: Think about defining all variables here, so we can configure
+  #       a new cluster easier

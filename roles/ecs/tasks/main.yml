@@ -1,0 +1,37 @@
+- name: Create ECS Cluster
+  ecs_cluster:
+    name: "{{ cluster_name }}"
+    state: present
+
+- name: Create ECS Task Definition
+  ecs_taskdefinition:
+    region: "{{ region }}"
+    family: "{{ task_name }}"
+    state: present
+    containers: "{{ containers }}"
+
+- name: DEBUG
+  debug: msg="{{ _elb }}"
+
+- name: Create ECS Service
+  ecs_service:
+    state: present
+    name: "{{ service_name }}"
+    cluster: "{{ cluster_name }}"
+    task_definition: "{{ task_name }}"
+    desired_count: "{{ instance_count }}"
+    role: "{{ ecs_iam_role }}"
+    load_balancers:
+      - { 'loadBalancerName': "{{ elb_name }}", 'containerName': "nginx", 'containerPort': 80 }
+
+- name: Start the Pipeline
+  ecs_task:
+    operation: run
+    cluster: "{{ cluster_name }}"
+    task_definition: "{{ task_name }}"
+    count: 1
+    started_by: "Ansible"
+  tags: start_task
+  delay: 10
+  # FIXME: This may need to be staggered, if the time it takes for the
+  #        instances becomes a problem

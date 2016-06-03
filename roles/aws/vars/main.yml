@@ -1,0 +1,15 @@
+region: eu-west-1
+vpc:
+  cidr: 10.50.0.0/16
+  subnet: 10.50.1.0/24
+  az: eu-west-1a
+  tag: "Pipeline"
+  routes:
+    everything: 0.0.0.0/0
+    gw: igw
+default_ami: ami-b0ac25c3
+instance_size: t2.medium
+ssh_keyname: afraz
+lc_name: pipeline_ecs
+asg_name: "{{ project_name }}"
+sec_group: "{{ project_name }}"

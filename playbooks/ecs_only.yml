@@ -1,0 +1,4 @@
+- hosts: localhost
+  roles:
+    - role: ecs
+  remote_user: ec2-user

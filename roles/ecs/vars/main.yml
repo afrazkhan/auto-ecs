@@ -1,0 +1,33 @@
+region: "eu-west-1"
+cluster_name: "{{ project_name }}"
+task_name: "{{ project_name }}"
+service_name: "{{ project_name }}"
+elb_name: "{{ project_name }}"
+
+# INFO: List all the keys with:
+# aws ecs register-task-definition --generate-cli-skeleton
+containers:
+  - name: "nginx"
+    cpu: 30
+    essential: true
+    image: "nginx"
+    memory: 100
+    portMappings:
+      - containerPort: 80
+        hostPort: 8081
+  - name: "jenkins"
+    cpu: 30
+    essential: true
+    image: "jenkins"
+    memory: 1900
+    portMappings:
+      - containerPort: 8080
+        hostPort: 8082
+  - name: "nexus"
+    cpu: 30
+    essential: true
+    image: "sonatype/nexus:oss"
+    memory: 1900
+    portMappings:
+      - containerPort: 8081
+        hostPort: 8083

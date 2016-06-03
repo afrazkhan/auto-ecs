@@ -1,0 +1,152 @@
+- name: Create Single VPC
+  ec2_vpc:
+    state: present
+    cidr_block: "{{ vpc.cidr }}"
+    resource_tags: { "Project": "{{ vpc.tag }}" }
+    subnets:
+      - cidr: "{{ vpc.subnet }}"
+        az: "{{ vpc.az }}"
+        resource_tags: { "Project": "{{ vpc.tag }}" }
+    internet_gateway: True
+    route_tables:
+      - subnets:
+        - "{{ vpc.subnet }}"
+        routes:
+          - dest: "{{ vpc.routes.everything }}"
+            gw: "{{ vpc.routes.gw }}"
+    region: "{{ region }}"
+  register: _vpc
+
+- name: Create IAM Role for ECS Cluster
+  iam:
+    iam_type: role
+    name: "{{ ecs_iam_role }}"
+    state: present
+
+- name: Attach ECS Policy to ecsInstanceRole
+  iam_policy:
+    iam_name: "{{ ecs_iam_role }}"
+    iam_type: role
+    policy_name: "ecsInstancePolicy"
+    state: present
+    policy_document: roles/aws/files/ecs_instance_policy.json
+
+- name: Attach ELB Policy to ecsInstanceRole
+  iam_policy:
+    iam_name: "{{ ecs_iam_role }}"
+    iam_type: role
+    policy_name: "ecsELBPolicy"
+    state: present
+    policy_document: roles/aws/files/elb_policy.json
+
+- name: Update Role Trust Relationship
+  command: aws iam update-assume-role-policy --role-name ecsInstanceRole \
+          --policy-document=file://roles/aws/files/ecs_trust_relationship.json
+
+- name: Create Security Group
+  ec2_group:
+    name: "{{ sec_group }}"
+    description: "Pipeline ECS Security Group"
+    region: "{{ region }}"
+    vpc_id: "{{ _vpc.vpc_id }}"
+    rules:
+      - proto: tcp
+        from_port: 8081
+        to_port: 8081
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 8082
+        to_port: 8082
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 8083
+        to_port: 8083
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+      - proto: all
+        group_name: "{{ sec_group }}"
+    rules_egress:
+      - proto: tcp
+        from_port: 0
+        to_port: 65535
+        cidr_ip: 0.0.0.0/0
+  register: _sec_group
+
+- name: Create Launch Configuration
+  ec2_lc:
+    name: "{{ lc_name }}"
+    image_id: "{{ default_ami }}"
+    assign_public_ip: True
+    region: "{{ region }}"
+    key_name: "{{ ssh_keyname }}"
+    security_groups: "{{ _sec_group.group_id }}"
+    instance_type: "{{ instance_size }}"
+    instance_profile_name: "{{ ecs_iam_role }}"
+    state: present
+    user_data: |
+               #!/bin/bash
+               sudo yum install -y ansible docker ecs-init
+               sudo service docker start
+               echo ECS_CLUSTER=pipeline >> /etc/ecs/ecs.config
+               sudo start ecs
+               # ansible-pull --url=https://github.com/afrazkhan/auto-ecs.git playbooks/ecs_only.yml
+
+- name: Create Autoscaling Group
+  ec2_asg:
+    name: "{{ asg_name }}"
+    launch_config_name: "{{ lc_name }}"
+    region: "{{ region }}"
+    vpc_zone_identifier: "{{ _vpc.subnets[0].id }}"
+    min_size: 1
+    max_size: 1
+    desired_capacity: 1
+    replace_all_instances: True
+    wait_for_instances: True
+    wait_timeout: 900
+    tags:
+      - "Project": "{{ asg_name }}"
+
+- name: Wait for Instace to Become Viable
+  ec2_asg:
+    name: "{{ asg_name }}"
+    region: "{{ region }}"
+  register: this_asg
+  until: this_asg.viable_instances >= instance_count
+  delay: 7
+  retries: 15
+  # FIXME: This may need to be further staggered, if we reach a timeout scenario
+  #        Could use http://docs.ansible.com/ansible/ec2_remote_facts_module.html
+  #        coupled with tagging
+
+- name: Create ELB
+  ec2_elb_lb:
+    name: "{{ project_name }}"
+    state: present
+    region: "{{ region }}"
+    subnets: "{{ _vpc.subnets[0].id }}"
+    zones:
+      - "{{ vpc.az }}"
+    listeners:
+      - protocol: tcp
+        load_balancer_port: 8081
+        instance_port: 8081
+      - protocol: tcp
+        load_balancer_port: 8082
+        instance_port: 8082
+      - protocol: tcp
+        load_balancer_port: 8083
+        instance_port: 8083
+    health_check:
+        ping_protocol: tcp
+        ping_port: 8081
+        response_timeout: 5
+        interval: 30
+        unhealthy_threshold: 2
+        healthy_threshold: 5
+  register: _elb
+
+# TODO: If we use ELBs, think about using Route53 to auto-register the
+#       generated ELB DNS to a hosted zone
