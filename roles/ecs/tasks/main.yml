@@ -10,9 +10,6 @@
     state: present
     containers: "{{ containers }}"
 
-- name: DEBUG
-  debug: msg="{{ _elb }}"
-
 - name: Create ECS Service
   ecs_service:
     state: present

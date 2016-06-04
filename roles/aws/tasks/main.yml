@@ -127,8 +127,7 @@
     state: present
     region: "{{ region }}"
     subnets: "{{ _vpc.subnets[0].id }}"
-    zones:
-      - "{{ vpc.az }}"
+    security_group_ids: "{{ _sec_group.group_id }}"
     listeners:
       - protocol: tcp
         load_balancer_port: 8081
