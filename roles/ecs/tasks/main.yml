@@ -10,9 +10,6 @@
     state: present
     containers: "{{ containers }}"
 
-- name: DEBUG
-  debug: msg="{{ _elb }}"
-
 - name: Create ECS Service
   ecs_service:
     state: present
@@ -20,9 +17,6 @@
     cluster: "{{ cluster_name }}"
     task_definition: "{{ task_name }}"
     desired_count: "{{ instance_count }}"
-    role: "{{ ecs_iam_role }}"
-    load_balancers:
-      - { 'loadBalancerName': "{{ elb_name }}", 'containerName': "nginx", 'containerPort': 80 }
 
 - name: Start the Pipeline
   ecs_task:

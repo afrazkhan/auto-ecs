@@ -31,14 +31,6 @@
     state: present
     policy_document: roles/aws/files/ecs_instance_policy.json
 
-- name: Attach ELB Policy to ecsInstanceRole
-  iam_policy:
-    iam_name: "{{ ecs_iam_role }}"
-    iam_type: role
-    policy_name: "ecsELBPolicy"
-    state: present
-    policy_document: roles/aws/files/elb_policy.json
-
 - name: Update Role Trust Relationship
   command: aws iam update-assume-role-policy --role-name ecsInstanceRole \
           --policy-document=file://roles/aws/files/ecs_trust_relationship.json
@@ -121,32 +113,8 @@
   #        Could use http://docs.ansible.com/ansible/ec2_remote_facts_module.html
   #        coupled with tagging
 
-- name: Create ELB
-  ec2_elb_lb:
-    name: "{{ project_name }}"
-    state: present
-    region: "{{ region }}"
-    subnets: "{{ _vpc.subnets[0].id }}"
-    zones:
-      - "{{ vpc.az }}"
-    listeners:
-      - protocol: tcp
-        load_balancer_port: 8081
-        instance_port: 8081
-      - protocol: tcp
-        load_balancer_port: 8082
-        instance_port: 8082
-      - protocol: tcp
-        load_balancer_port: 8083
-        instance_port: 8083
-    health_check:
-        ping_protocol: tcp
-        ping_port: 8081
-        response_timeout: 5
-        interval: 30
-        unhealthy_threshold: 2
-        healthy_threshold: 5
-  register: _elb
+# TODO: At this point, print a nice message with how to connect to the services
+#       complete with URLs
 
 # TODO: If we use ELBs, think about using Route53 to auto-register the
 #       generated ELB DNS to a hosted zone
