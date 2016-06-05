@@ -26,6 +26,6 @@
     count: 1
     started_by: "Ansible"
   tags: start_task
-  delay: 10
+  delay: 60
   # FIXME: This may need to be staggered, if the time it takes for the
   #        instances becomes a problem
