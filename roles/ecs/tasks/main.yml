@@ -28,4 +28,4 @@
   tags: start_task
   delay: 60
   # FIXME: This may need to be staggered, if the time it takes for the
-  #        instances becomes a problem
+  #        instances to run their containers becomes a problem
